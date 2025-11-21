@@ -1,0 +1,5 @@
+train: /Users/harshlohia/Downloads/parking/vehicle/train
+val:   /Users/harshlohia/Downloads/parking/vehicle/val
+
+nc: 10
+names: ['bus', 'family sedan', 'suv', 'jeep', 'mini bus', 'heavy truck', 'fire engine', 'taxi', 'truck', 'racing_car']
