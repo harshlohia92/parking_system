@@ -13,18 +13,14 @@ from normalize_plate import normalize_plate
 from utils import draw_plate_box
 from vehicle_map import VEHICLE_CLASSES
 
-# --------------------
-# Config
-# --------------------
+
 PLATE_MODEL = "/Users/harshlohia/Automatic_Number_Plate_Detection_Recognition_YOLOv8/ultralytics/yolo/v8/detect/best.pt"
 VEHICLE_MODEL = "/Users/harshlohia/runs/detect/train13/weights/best.pt"
 
-# Debounce same plate (seconds)
+
 PLATE_DEBOUNCE_SECONDS = 30
 
-# --------------------
-# Init models (may take time)
-# --------------------
+
 @st.cache_resource
 def load_models():
     plate_detector = PlateDetector(PLATE_MODEL)
@@ -34,9 +30,7 @@ def load_models():
 
 plate_detector, vehicle_detector, ocr_reader = load_models()
 
-# --------------------
-# Page layout
-# --------------------
+
 st.set_page_config(page_title="Smart Parking System", layout="wide")
 st.title("🚗 Smart Parking System — Number Plate Recognition")
 st.write("Use camera or upload image. Entry / Exit flow with invoice download.")
@@ -45,13 +39,11 @@ page = st.sidebar.radio("Mode", ["Entry Gate", "Exit Gate"])
 st.sidebar.markdown("---")
 st.sidebar.info("Capture a photo with your webcam (Use *Take photo*), or upload an image file.")
 
-# initialize session state storage for debouncing
+
 if "last_plate_time" not in st.session_state:
     st.session_state["last_plate_time"] = {}  # { plate: timestamp }
 
-# --------------------
-# Helpers
-# --------------------
+
 def capture_from_camera():
     """Use streamlit's camera_input (returns decoded OpenCV image or None)."""
     img_file_buffer = st.camera_input("Take a photo")
@@ -78,14 +70,14 @@ def parse_vehicle_detection(detections_v):
         if not detections_v:
             return default
 
-        # ultralytics objects (each entry has .cls/.conf)
+        
         first = detections_v[0]
         if hasattr(first, "cls"):
             best = max(detections_v, key=lambda x: float(x.conf))
             cls_id = int(best.cls)
             return VEHICLE_CLASSES.get(cls_id, default)
 
-        # dict-style
+        
         if isinstance(first, dict):
             best = max(detections_v, key=lambda x: x.get("confidence", 0))
             cls_id = best.get("class_id", None)
@@ -93,7 +85,7 @@ def parse_vehicle_detection(detections_v):
                 return VEHICLE_CLASSES.get(int(cls_id), default)
             return default
 
-        # list-style [x1,y1,x2,y2,conf,class]
+        
         if isinstance(first, (list, tuple)) and len(first) >= 6:
             best = max(detections_v, key=lambda x: x[4])
             cls_id = int(best[5])
@@ -115,7 +107,7 @@ def show_invoice_download_from_path(path, label="Download Invoice"):
         except Exception:
             pass
 
-    # fallback: nothing on file, maybe create on the fly in UI (handled by caller)
+  
 
 def make_invoice_text(plate, minutes, amount):
     tnow = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -136,9 +128,7 @@ def plate_debounced(plate):
     st.session_state["last_plate_time"][plate] = now
     return True
 
-# --------------------
-# Main flows
-# --------------------
+
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -155,7 +145,7 @@ with col1:
             frame = load_image(uploaded_img)
 
     if frame is not None:
-        # show the input image
+        
         st.image(frame, channels="BGR", caption="Input Image", use_container_width=True)
 
 with col2:
@@ -164,10 +154,10 @@ with col2:
     status_display = st.empty()
     invoice_area = st.empty()
 
-# process if we have a frame
+
 if 'frame' in locals() and frame is not None:
 
-    # run plate detection
+    
     try:
         detections = plate_detector.detect(frame)
     except Exception as e:
@@ -177,21 +167,21 @@ if 'frame' in locals() and frame is not None:
     if not detections:
         status_display.error("No number plate detected.")
     else:
-        # choose the top detection
+        
         det = detections[0]
         x1, y1, x2, y2 = det["coords"]
-        # defensive cropping
+        
         h, w = frame.shape[:2]
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(w, x2), min(h, y2)
         crop = frame[y1:y2, x1:x2]
 
-        # draw bounding box for preview
+       
         preview = frame.copy()
         preview = draw_plate_box(preview, (x1, y1, x2, y2), "")
         st.image(preview, channels="BGR", caption="Detected Plate Region (boxed)")
 
-        # OCR
+       
         try:
             raw_text = ocr_reader.read_text(crop)
         except Exception as e:
@@ -209,13 +199,13 @@ if 'frame' in locals() and frame is not None:
             else:
                 plate_display.success(f"Detected Plate: **{plate_text}**")
 
-                # Throttle duplicate processing
+               
                 if not plate_debounced(plate_text):
                     status_display.info(f"Plate {plate_text} recently processed — wait {PLATE_DEBOUNCE_SECONDS}s")
                 else:
-                    # ENTRY
+                   
                     if page == "Entry Gate":
-                        # detect vehicle type robustly
+                        
                         vehicle_label = "family_sedan"
                         try:
                             detections_v = vehicle_detector.detect_vehicle(frame)
@@ -223,7 +213,7 @@ if 'frame' in locals() and frame is not None:
                             detections_v = None
                         vehicle_label = parse_vehicle_detection(detections_v)
 
-                        # call your business logic
+                        
                         try:
                             res = handle_entry(plate_text, vehicle_label)
                         except Exception as e:
@@ -243,7 +233,7 @@ if 'frame' in locals() and frame is not None:
 
                         invoice_area.empty()
 
-                    # EXIT
+                    
                     else:
                         try:
                             res = handle_exit(plate_text)
@@ -259,14 +249,14 @@ if 'frame' in locals() and frame is not None:
                                 f"✅ Exit Completed\n\nPlate: **{plate_text}**\n\nSlot Freed: **{slot_rel}**\n\nDuration: **{minutes}** mins\n\nAmount: **₹{amount}**"
                             )
 
-                            # try download invoice from invoice file path returned by handle_exit()
+                           
                             invoice_path = res.get("invoice")
                             if invoice_path and os.path.exists(invoice_path):
-                                # show download button for existing file
+                                
                                 with invoice_area:
                                     show_invoice_download_from_path(invoice_path, label="📄 Download Invoice (file)")
                             else:
-                                # create on-the-fly invoice text and make downloadable
+                                
                                 invoice_txt = make_invoice_text(plate_text, minutes, amount)
                                 with invoice_area:
                                     st.download_button(
