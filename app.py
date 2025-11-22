@@ -1,3 +1,10 @@
+import os
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "0"
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
 import streamlit as st
 import cv2
 import numpy as np
